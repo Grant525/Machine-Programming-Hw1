@@ -13,6 +13,8 @@ void print_line(void **linepp, void*cl);
 void free_line(void **line, void *cl);
 void convert_to_clean(void **linepp, void*cl);
 void convert_to_raw(void **linepp, void *cl);
+void find_width_height(void **linepp, void *cl);
+void print_real(void **linepp, void *cl);
 
 struct line {
     size_t length;
@@ -22,10 +24,15 @@ struct line {
     void *nondigits_atom;
 };
 
+//TODO: update name of this struct
 struct table_atom {
     void *table;
     const char *infusion_seq_atom;
+    int *width;
+    int *height;
 };
+
+
 
 int main(int argc, char *argv[]){
     FILE *fp = open_or_abort(argc, argv);
@@ -59,10 +66,22 @@ int main(int argc, char *argv[]){
     Table_T atom_to_struct = Table_new(0, NULL, NULL);
     tap->table = atom_to_struct;
     tap->infusion_seq_atom = NULL;
+    tap->height = malloc(sizeof(int));
+    *(tap->height) = 0;
+    tap->width = malloc(sizeof(int));
+    *(tap->width) = 0;
 
     //calling convert_to_clean with address of our closure, tap
     List_map(lines, convert_to_clean, (void **)tap);
 
+    //calling convert_to_raw 
+    List_map(lines, convert_to_raw, NULL);
+
+    //calling find_width_height
+    List_map(lines, find_width_height, (void **)tap);
+    
+    printf("P5\n%d %d\n255\n", *(tap->width), *(tap->height));
+    List_map(lines, print_real, (void **)tap);
     //TODO: figure out what to do with this
     // if(datap == NULL){
     //     printf("datap was set to NULL\n");
@@ -72,11 +91,50 @@ int main(int argc, char *argv[]){
     List_map(lines, free_line, NULL);
     List_free(&lines);
     Table_free(&atom_to_struct);
+    free(tap->height);
+    free(tap->width);
+    //free width and height from tap
     //TODO: confirm this can be deleted. Its a copy of a ptr to an atom
     //free(tap->infusion_seq_atom);
     FREE(tap);
     fclose(fp);
     return EXIT_SUCCESS;
+}
+
+
+/* print_real
+   Parameters: pointer to pointer to line struct (cast as void), table_atom closure
+   Output: prints all original, uncorrupted lines in raw pgm format
+*/
+void print_real(void **linepp, void *cl){
+    struct line *this_line = (struct line *)(*linepp);
+    const char *true_inf_seq = ((struct table_atom *)cl)->infusion_seq_atom;
+
+    if(this_line->nondigits_atom == true_inf_seq){
+        printf("%s\n", this_line->raw);
+    }
+
+}
+
+/* find_width_height
+   Parameters: pointer to pointer to line struct (cast as void), closure 
+               containing int *width and int*height
+   Output: updates width to the length of an original (uninjected) row
+           updates height to be the number of original rows
+*/
+void find_width_height(void **linepp, void *cl){
+    //local variables, unpacking parameters
+    int *w = ((struct table_atom *)cl)->width;
+    int *h = ((struct table_atom *)cl)->height;
+    const char *true_inf_seq = ((struct table_atom *)cl)->infusion_seq_atom;
+    struct line *this_line = (struct line *)(*linepp);
+    
+    if(this_line->nondigits_atom == true_inf_seq){
+        //set width
+        *w = (int)(strlen(this_line->raw));
+        //increment height
+        *h = *h + 1;
+    }
 }
 
 /* convert_to_raw
@@ -86,7 +144,39 @@ int main(int argc, char *argv[]){
    represents an int from clean_cont. 
 */
 void convert_to_raw(void **linepp, void *cl){
+    (void)cl;
+    //temp variable and counter variable
+    char c;
+    int raw_i = 0;
+    //strtol variables
+    char *startptr = ((struct line *)(*linepp))->clean_cont;
+    char *endptr = NULL;
+    long int num;
+    //allocating an array for raw
+    char *rawformat = malloc(1000 * sizeof(char));
     
+    //while endptr is not yet at the end of plainpgm
+    while(*startptr != '\0'){
+        //strtol reads in digits until it reaches a non-digit char
+        //returns a long int representing the int version of those digits
+        //updates endptr to point to where it left off in startptr 
+        //(first nondigit char)
+        num = strtol(startptr,&endptr,10);
+        
+        //if we've reached the end of the string, exit while loop
+        if(startptr == endptr){
+            break;
+        }
+        //convert integer to char and add to rawformat
+        c = (char)num;  
+        rawformat[raw_i] = c;
+    
+        //increment startptr and raw_i
+        startptr = endptr;
+        raw_i++;
+    }
+    rawformat[raw_i] = '\0';
+    ((struct line *)(*linepp))->raw = rawformat;
 }
 
 
@@ -102,7 +192,7 @@ void free_line(void **linepp, void *cl){
     free(((struct line *)(*linepp))->orig_cont);
     // TODO: uncomment once we've actually put memory on the heap for these
     free(((struct line *)(*linepp))->clean_cont);
-    //free(((struct line *)(*linepp))->raw);
+    free(((struct line *)(*linepp))->raw);
     FREE(*linepp);
 }
 
