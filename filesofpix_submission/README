@@ -1,0 +1,24 @@
+CS 40 HW 1 Files, Pictures, and Interfaces
+------------------------------------------
+
+Submitter (name and login): Willa Andrade, wandra01
+Partner (name and login): Grant Caile, gcaile01
+
+Acknowledgements:  TA's Hannah H, Sam, Amelia, Zach and Lumen were super 
+                   helpful in OH! Also big shout to GeeksforGeeks for their
+                   descriptions of fwrite() and strtol(). We also referenced
+                   the Hanson textbook a lot. 
+
+    AI use: 
+
+
+What works and what does not:
+Our program can handle corrupted pgm files that do not have lines over 
+1000 characters.
+
+
+Hours spent on assignment: 28
+
+
+Other information: 
+
